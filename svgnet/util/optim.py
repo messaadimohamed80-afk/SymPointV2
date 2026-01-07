@@ -2,7 +2,37 @@ import torch.optim
 from typing import Any, Dict, List, Set
 import copy
 import itertools
-from detectron2.solver.build import maybe_add_gradient_clipping
+from munch import Munch
+
+# Replacement for detectron2's maybe_add_gradient_clipping
+def maybe_add_gradient_clipping(cfg, optimizer):
+    """
+    Add gradient clipping to an optimizer if configured.
+    This is a simplified version to replace detectron2's implementation.
+    """
+    if not cfg.SOLVER.CLIP_GRADIENTS.ENABLED:
+        return optimizer
+
+    clip_type = cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE
+    clip_value = cfg.SOLVER.CLIP_GRADIENTS.CLIP_VALUE
+    norm_type = cfg.SOLVER.CLIP_GRADIENTS.NORM_TYPE
+
+    if clip_type == "value":
+        class GradientClippingOptimizer(type(optimizer)):
+            def step(self, closure=None):
+                all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                torch.nn.utils.clip_grad_value_(all_params, clip_value)
+                super().step(closure=closure)
+        return GradientClippingOptimizer.__new__(GradientClippingOptimizer, optimizer.param_groups)
+    elif clip_type == "norm":
+        class GradientClippingOptimizer(type(optimizer)):
+            def step(self, closure=None):
+                all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                torch.nn.utils.clip_grad_norm_(all_params, clip_value, norm_type=norm_type)
+                super().step(closure=closure)
+        return GradientClippingOptimizer.__new__(GradientClippingOptimizer, optimizer.param_groups)
+    else:
+        return optimizer
 
 
 def build_optimizer(model, optim_cfg):
@@ -81,9 +111,9 @@ def build_new_optimizer(model,args):
     else:
         raise NotImplementedError(f"no optimizer type {optimizer_type}")
 
-    from detectron2.config import CfgNode as CN
-    args.SOLVER = CN()
-    args.SOLVER.CLIP_GRADIENTS = CN()
+    # Use Munch instead of detectron2's CfgNode
+    args.SOLVER = Munch()
+    args.SOLVER.CLIP_GRADIENTS = Munch()
     args.SOLVER.CLIP_GRADIENTS.ENABLED  = args.clip_gradients_enabled
     args.SOLVER.CLIP_GRADIENTS.CLIP_TYPE  = args.clip_gradients_type
     args.SOLVER.CLIP_GRADIENTS.CLIP_VALUE  = args.clip_gradients_value

@@ -9,23 +9,33 @@ try:
 except ImportError:
     import warnings
     import os
-    from torch.utils.cpp_extension import load
 
     warnings.warn("Unable to load pointops_cuda cpp extension.")
-    pointops_cuda_src = os.path.join(os.path.dirname(__file__), "../src")
-    pointops_cuda = load('pointops_cuda', [
-        pointops_cuda_src + '/pointops_api.cpp',
-        pointops_cuda_src + '/knnquery/knnquery_cuda.cpp',
-        pointops_cuda_src + '/knnquery/knnquery_cuda_kernel.cu',
-        pointops_cuda_src + '/interpolation/interpolation_cuda.cpp',
-        pointops_cuda_src + '/interpolation/interpolation_cuda_kernel.cu',
-        pointops_cuda_src + '/sampling/sampling_cuda.cpp',
-        pointops_cuda_src + '/sampling/sampling_cuda_kernel.cu',
-        pointops_cuda_src + '/subtraction/subtraction_cuda.cpp',
-        pointops_cuda_src + '/subtraction/subtraction_cuda_kernel.cu',
-        pointops_cuda_src + '/aggregation/aggregation_cuda.cpp',
-        pointops_cuda_src + '/aggregation/aggregation_cuda_kernel.cu',
-    ], build_directory=pointops_cuda_src, verbose=False)
+
+    # Try to compile if CUDA_HOME is set
+    if os.environ.get('CUDA_HOME'):
+        try:
+            from torch.utils.cpp_extension import load
+            pointops_cuda_src = os.path.join(os.path.dirname(__file__), "../src")
+            pointops_cuda = load('pointops_cuda', [
+                pointops_cuda_src + '/pointops_api.cpp',
+                pointops_cuda_src + '/knnquery/knnquery_cuda.cpp',
+                pointops_cuda_src + '/knnquery/knnquery_cuda_kernel.cu',
+                pointops_cuda_src + '/interpolation/interpolation_cuda.cpp',
+                pointops_cuda_src + '/interpolation/interpolation_cuda_kernel.cu',
+                pointops_cuda_src + '/sampling/sampling_cuda.cpp',
+                pointops_cuda_src + '/sampling/sampling_cuda_kernel.cu',
+                pointops_cuda_src + '/subtraction/subtraction_cuda.cpp',
+                pointops_cuda_src + '/subtraction/subtraction_cuda_kernel.cu',
+                pointops_cuda_src + '/aggregation/aggregation_cuda.cpp',
+                pointops_cuda_src + '/aggregation/aggregation_cuda_kernel.cu',
+            ], build_directory=pointops_cuda_src, verbose=False)
+        except Exception as e:
+            warnings.warn(f"Failed to compile pointops_cuda: {e}")
+            pointops_cuda = None
+    else:
+        warnings.warn("CUDA_HOME not set, pointops_cuda will not be available.")
+        pointops_cuda = None
 
 
 class FurthestSampling(Function):

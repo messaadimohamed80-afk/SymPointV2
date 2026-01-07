@@ -8,8 +8,13 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 import torch.distributed as dist
-from detectron2.utils.comm import get_world_size
 from .heads import ContrastHead
+
+# Replacement for detectron2's get_world_size
+def get_world_size():
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_world_size()
+    return 1
 
 def is_dist_avail_and_initialized():
     if not dist.is_available():
